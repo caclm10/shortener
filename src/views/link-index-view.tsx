@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { LinkCreateForm } from "@/components/link-create-form";
 import { LinkEditForm } from "@/components/link-edit-form";
@@ -16,13 +16,25 @@ import {
 import {
     ArrowUpDown,
     Copy,
+    EditIcon,
     ExternalLink,
+    Loader2,
     MoreHorizontal,
     PlusIcon,
     Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import {
     DropdownMenu,
@@ -41,37 +53,7 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table";
-
-// Sample data - will be replaced with real data from Supabase
-const sampleData: LinkTable[] = [
-    {
-        id: "1",
-        user_id: "user-1",
-        alias: "abc123",
-        original_url: "https://example.com/very-long-url-that-needs-shortening",
-        visit_count: 156,
-        created_at: "2026-01-01",
-        updated_at: "2026-01-01",
-    },
-    {
-        id: "2",
-        user_id: "user-1",
-        alias: "xyz789",
-        original_url: "https://github.com/user/repository",
-        visit_count: 42,
-        created_at: "2026-01-02",
-        updated_at: "2026-01-02",
-    },
-    {
-        id: "3",
-        user_id: "user-1",
-        alias: "qwe456",
-        original_url: "https://docs.google.com/document/d/example",
-        visit_count: 0,
-        created_at: "2026-01-02",
-        updated_at: "2026-01-02",
-    },
-];
+import { deleteLink, getLinks } from "@/lib/links";
 
 const columns: ColumnDef<LinkTable>[] = [
     {
@@ -160,55 +142,25 @@ const columns: ColumnDef<LinkTable>[] = [
         header: "Created",
         cell: ({ row }) => {
             const date = row.getValue("created_at") as string;
-            return <div className="text-muted-foreground text-sm">{date}</div>;
+            return (
+                <div className="text-muted-foreground text-sm">
+                    {new Date(date).toLocaleDateString()}
+                </div>
+            );
         },
     },
     {
         id: "actions",
         enableHiding: false,
-        cell: ({ row }) => {
-            const link = row.original;
-            const fullUrl = `${window.location.origin}/${link.alias}`;
-
-            return (
-                <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" className="h-8 w-8 p-0">
-                            <span className="sr-only">Open menu</span>
-                            <MoreHorizontal />
-                        </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                        <DropdownMenuItem
-                            onClick={() => {
-                                navigator.clipboard.writeText(fullUrl);
-                                toast.success("Link copied to clipboard");
-                            }}
-                        >
-                            <Copy className="mr-2 h-4 w-4" />
-                            Copy link
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                            onClick={() => window.open(fullUrl, "_blank")}
-                        >
-                            <ExternalLink className="mr-2 h-4 w-4" />
-                            Open link
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem className="text-destructive">
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            Delete
-                        </DropdownMenuItem>
-                    </DropdownMenuContent>
-                </DropdownMenu>
-            );
-        },
+        cell: () => null, // Will be overridden by getColumns
     },
 ];
 
-// Helper to get columns with edit handler
-function getColumns(onEdit: (link: LinkTable) => void): ColumnDef<LinkTable>[] {
+// Helper to get columns with handlers
+function getColumns(
+    onEdit: (link: LinkTable) => void,
+    onDelete: (link: LinkTable) => void,
+): ColumnDef<LinkTable>[] {
     return columns.map((col) => {
         if (col.id === "actions") {
             return {
@@ -248,9 +200,13 @@ function getColumns(onEdit: (link: LinkTable) => void): ColumnDef<LinkTable>[] {
                                 </DropdownMenuItem>
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem onClick={() => onEdit(link)}>
+                                    <EditIcon className="mr-2 h-4 w-4" />
                                     Edit
                                 </DropdownMenuItem>
-                                <DropdownMenuItem className="text-destructive">
+                                <DropdownMenuItem
+                                    className="text-destructive"
+                                    onClick={() => onDelete(link)}
+                                >
                                     <Trash2 className="mr-2 h-4 w-4" />
                                     Delete
                                 </DropdownMenuItem>
@@ -265,14 +221,54 @@ function getColumns(onEdit: (link: LinkTable) => void): ColumnDef<LinkTable>[] {
 }
 
 function LinkIndexView() {
+    const [links, setLinks] = useState<LinkTable[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
     const [sorting, setSorting] = useState<SortingState>([]);
     const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
     const [editingLink, setEditingLink] = useState<LinkTable | null>(null);
+    const [deletingLink, setDeletingLink] = useState<LinkTable | null>(null);
+    const [isDeleting, setIsDeleting] = useState(false);
 
-    const tableColumns = getColumns((link) => setEditingLink(link));
+    const fetchLinks = useCallback(async () => {
+        try {
+            const data = await getLinks();
+            setLinks(data);
+        } catch (error) {
+            console.error("Failed to fetch links:", error);
+            toast.error("Failed to load links");
+        } finally {
+            setIsLoading(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        fetchLinks();
+    }, [fetchLinks]);
+
+    const handleDelete = async () => {
+        if (!deletingLink) return;
+
+        setIsDeleting(true);
+        try {
+            await deleteLink(deletingLink.id);
+            toast.success("Link deleted successfully");
+            setLinks((prev) => prev.filter((l) => l.id !== deletingLink.id));
+        } catch (error) {
+            console.error("Failed to delete link:", error);
+            toast.error("Failed to delete link");
+        } finally {
+            setIsDeleting(false);
+            setDeletingLink(null);
+        }
+    };
+
+    const tableColumns = getColumns(
+        (link) => setEditingLink(link),
+        (link) => setDeletingLink(link),
+    );
 
     const table = useReactTable({
-        data: sampleData,
+        data: links,
         columns: tableColumns,
         onSortingChange: setSorting,
         onColumnFiltersChange: setColumnFilters,
@@ -303,6 +299,9 @@ function LinkIndexView() {
                             Create Link
                         </Button>
                     }
+                    onSuccess={(newLink) => {
+                        setLinks((prev) => [newLink, ...prev]);
+                    }}
                 />
             </div>
 
@@ -347,7 +346,16 @@ function LinkIndexView() {
                         ))}
                     </TableHeader>
                     <TableBody>
-                        {table.getRowModel().rows?.length ? (
+                        {isLoading ? (
+                            <TableRow>
+                                <TableCell
+                                    colSpan={columns.length}
+                                    className="h-24 text-center"
+                                >
+                                    <Loader2 className="mx-auto h-6 w-6 animate-spin" />
+                                </TableCell>
+                            </TableRow>
+                        ) : table.getRowModel().rows?.length ? (
                             table.getRowModel().rows.map((row) => (
                                 <TableRow key={row.id}>
                                     {row.getVisibleCells().map((cell) => (
@@ -405,8 +413,46 @@ function LinkIndexView() {
                     link={editingLink}
                     open={!!editingLink}
                     onOpenChange={(open) => !open && setEditingLink(null)}
+                    onSuccess={(updatedLink) => {
+                        setLinks((prev) =>
+                            prev.map((l) =>
+                                l.id === updatedLink.id ? updatedLink : l,
+                            ),
+                        );
+                    }}
                 />
             )}
+
+            {/* Delete Confirmation Dialog */}
+            <AlertDialog
+                open={!!deletingLink}
+                onOpenChange={(open) => !open && setDeletingLink(null)}
+            >
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Delete Link</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Are you sure you want to delete{" "}
+                            <code className="bg-muted rounded px-1">
+                                /{deletingLink?.alias}
+                            </code>
+                            ? This action cannot be undone.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel disabled={isDeleting}>
+                            Cancel
+                        </AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={handleDelete}
+                            disabled={isDeleting}
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                        >
+                            {isDeleting ? "Deleting..." : "Delete"}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     );
 }

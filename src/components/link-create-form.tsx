@@ -23,6 +23,7 @@ import {
     FieldLabel,
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { createLink } from "@/lib/links";
 
 const linkSchema = z.object({
     original_url: z.string().url("Please enter a valid URL"),
@@ -40,7 +41,7 @@ type LinkFormData = z.infer<typeof linkSchema>;
 
 interface LinkCreateFormProps {
     trigger: React.ReactNode;
-    onSuccess?: (data: LinkFormData) => void;
+    onSuccess?: (link: LinkTable) => void;
 }
 
 function LinkCreateForm({ trigger, onSuccess }: LinkCreateFormProps) {
@@ -62,15 +63,31 @@ function LinkCreateForm({ trigger, onSuccess }: LinkCreateFormProps) {
         setIsLoading(true);
 
         try {
-            // TODO: Save to database
-            console.log("Creating link:", data);
+            const newLink = await createLink({
+                original_url: data.original_url,
+                alias: data.alias || undefined,
+            });
 
             toast.success("Link created successfully!");
-            onSuccess?.(data);
+            onSuccess?.(newLink);
             setOpen(false);
             form.reset();
-        } catch {
-            toast.error("Failed to create link. Please try again.");
+        } catch (error) {
+            if (error instanceof Error) {
+                // Check for unique constraint violation
+                if (
+                    error.message.includes("duplicate") ||
+                    error.message.includes("unique")
+                ) {
+                    toast.error(
+                        "This alias is already taken. Please choose another.",
+                    );
+                } else {
+                    toast.error(error.message);
+                }
+            } else {
+                toast.error("Failed to create link. Please try again.");
+            }
         } finally {
             setIsLoading(false);
         }
@@ -83,8 +100,8 @@ function LinkCreateForm({ trigger, onSuccess }: LinkCreateFormProps) {
                 <CredenzaHeader>
                     <CredenzaTitle>Create Short Link</CredenzaTitle>
                     <CredenzaDescription>
-                        Enter the URL you want to shorten. Optionally, customize
-                        the alias.
+                        Enter the URL you want to shorten. Leave alias empty for
+                        auto-generation.
                     </CredenzaDescription>
                 </CredenzaHeader>
                 <CredenzaBody>

@@ -22,6 +22,7 @@ import {
     FieldLabel,
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { updateLink } from "@/lib/links";
 
 const linkSchema = z.object({
     original_url: z.string().url("Please enter a valid URL"),
@@ -40,7 +41,7 @@ interface LinkEditFormProps {
     link: LinkTable;
     open: boolean;
     onOpenChange: (open: boolean) => void;
-    onSuccess?: (data: LinkFormData) => void;
+    onSuccess?: (link: LinkTable) => void;
 }
 
 function LinkEditForm({
@@ -74,14 +75,29 @@ function LinkEditForm({
         setIsLoading(true);
 
         try {
-            // TODO: Save to database
-            console.log("Updating link:", link.id, data);
+            const updatedLink = await updateLink(link.id, {
+                original_url: data.original_url,
+                alias: data.alias,
+            });
 
             toast.success("Link updated successfully!");
-            onSuccess?.(data);
+            onSuccess?.(updatedLink);
             onOpenChange(false);
-        } catch {
-            toast.error("Failed to update link. Please try again.");
+        } catch (error) {
+            if (error instanceof Error) {
+                if (
+                    error.message.includes("duplicate") ||
+                    error.message.includes("unique")
+                ) {
+                    toast.error(
+                        "This alias is already taken. Please choose another.",
+                    );
+                } else {
+                    toast.error(error.message);
+                }
+            } else {
+                toast.error("Failed to update link. Please try again.");
+            }
         } finally {
             setIsLoading(false);
         }
