@@ -2,7 +2,13 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router";
 
 import { AuthGuard } from "@/components/auth-guard";
 import { AuthLayout, MainLayout } from "@/layouts";
-import { DashboardView, LinkIndexView, LoginView, RegisterView } from "@/views";
+import {
+    DashboardView,
+    LinkIndexView,
+    LoginView,
+    NotFoundView,
+    RegisterView,
+} from "@/views";
 
 function Router() {
     return (
@@ -24,6 +30,8 @@ function Router() {
                     <Route path="/login" element={<LoginView />} />
                     <Route path="/register" element={<RegisterView />} />
                 </Route>
+
+                <Route path="/404" element={<NotFoundView />} />
             </Routes>
         </BrowserRouter>
     );
