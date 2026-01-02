@@ -1,7 +1,7 @@
 {
     "rewrites": [
         {
-            "source": "/((?!login|register|dashboard|links|assets|favicon.ico|.*\\..*).+)",
+            "source": "/((?!login|register|dashboard|links|assets|favicon.ico|404|.*\\..*).+)",
             "destination": "https://ocyrkslssojrfumudngo.supabase.co/functions/v1/redirect-action?alias=$1"
         },
         {
