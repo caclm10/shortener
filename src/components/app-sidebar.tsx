@@ -1,8 +1,8 @@
 import { LayoutDashboardIcon, Link2Icon } from "lucide-react";
 import * as React from "react";
 
-import { NavUser } from "@/components/nav-user";
 import { SidebarNav } from "@/components/sidebar-nav";
+import { SidebarNavUser } from "@/components/sidebar-nav-user";
 import { SidebarTitle } from "@/components/sidebar-title";
 import {
     Sidebar,
@@ -12,28 +12,18 @@ import {
     SidebarRail,
 } from "@/components/ui/sidebar";
 
-const data = {
-    user: {
-        name: "shadcn",
-        email: "m@example.com",
-        avatar: "/avatars/shadcn.jpg",
+const menuItems = [
+    {
+        name: "Dashboard",
+        url: "/dashboard",
+        icon: LayoutDashboardIcon,
     },
-
-    menu: {
-        items: [
-            {
-                name: "Dashboard",
-                url: "/dashboard",
-                icon: LayoutDashboardIcon,
-            },
-            {
-                name: "Links",
-                url: "/links",
-                icon: Link2Icon,
-            },
-        ],
+    {
+        name: "Links",
+        url: "/links",
+        icon: Link2Icon,
     },
-};
+];
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     return (
@@ -42,10 +32,10 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 <SidebarTitle />
             </SidebarHeader>
             <SidebarContent>
-                <SidebarNav items={data.menu.items} />
+                <SidebarNav items={menuItems} />
             </SidebarContent>
             <SidebarFooter>
-                <NavUser user={data.user} />
+                <SidebarNavUser />
             </SidebarFooter>
             <SidebarRail />
         </Sidebar>

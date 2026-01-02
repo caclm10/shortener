@@ -1,11 +1,6 @@
-import {
-    BadgeCheck,
-    Bell,
-    ChevronsUpDown,
-    CreditCard,
-    LogOut,
-    Sparkles,
-} from "lucide-react";
+import { BadgeCheck, ChevronsUpDown, LogOut } from "lucide-react";
+import { useNavigate } from "react-router";
+import { toast } from "sonner";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -23,17 +18,37 @@ import {
     SidebarMenuItem,
     useSidebar,
 } from "@/components/ui/sidebar";
+import { useAuth } from "@/hooks/use-auth";
+import { supabase } from "@/lib/supabase";
 
-export function NavUser({
-    user,
-}: {
-    user: {
-        name: string;
-        email: string;
-        avatar: string;
-    };
-}) {
+function SidebarNavUser() {
     const { isMobile } = useSidebar();
+    const { user } = useAuth();
+    const navigate = useNavigate();
+
+    const displayName = user?.user_metadata?.full_name || user?.email || "User";
+    const email = user?.email || "";
+    const avatarUrl = user?.user_metadata?.avatar_url || "";
+
+    // Generate initials from name or email
+    const initials = displayName
+        .split(" ")
+        .map((n: string) => n[0])
+        .join("")
+        .toUpperCase()
+        .slice(0, 2);
+
+    async function handleLogout() {
+        const { error } = await supabase.auth.signOut();
+
+        if (error) {
+            toast.error(error.message);
+            return;
+        }
+
+        toast.success("Logged out successfully");
+        navigate("/login");
+    }
 
     return (
         <SidebarMenu>
@@ -46,19 +61,19 @@ export function NavUser({
                         >
                             <Avatar className="h-8 w-8 rounded-lg">
                                 <AvatarImage
-                                    src={user.avatar}
-                                    alt={user.name}
+                                    src={avatarUrl}
+                                    alt={displayName}
                                 />
                                 <AvatarFallback className="rounded-lg">
-                                    CN
+                                    {initials}
                                 </AvatarFallback>
                             </Avatar>
                             <div className="grid flex-1 text-left text-sm leading-tight">
                                 <span className="truncate font-medium">
-                                    {user.name}
+                                    {displayName}
                                 </span>
                                 <span className="truncate text-xs">
-                                    {user.email}
+                                    {email}
                                 </span>
                             </div>
                             <ChevronsUpDown className="ml-auto size-4" />
@@ -74,47 +89,33 @@ export function NavUser({
                             <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
                                 <Avatar className="h-8 w-8 rounded-lg">
                                     <AvatarImage
-                                        src={user.avatar}
-                                        alt={user.name}
+                                        src={avatarUrl}
+                                        alt={displayName}
                                     />
                                     <AvatarFallback className="rounded-lg">
-                                        CN
+                                        {initials}
                                     </AvatarFallback>
                                 </Avatar>
                                 <div className="grid flex-1 text-left text-sm leading-tight">
                                     <span className="truncate font-medium">
-                                        {user.name}
+                                        {displayName}
                                     </span>
                                     <span className="truncate text-xs">
-                                        {user.email}
+                                        {email}
                                     </span>
                                 </div>
                             </div>
                         </DropdownMenuLabel>
                         <DropdownMenuSeparator />
-                        <DropdownMenuGroup>
-                            <DropdownMenuItem>
-                                <Sparkles />
-                                Upgrade to Pro
-                            </DropdownMenuItem>
-                        </DropdownMenuGroup>
-                        <DropdownMenuSeparator />
+
                         <DropdownMenuGroup>
                             <DropdownMenuItem>
                                 <BadgeCheck />
                                 Account
                             </DropdownMenuItem>
-                            <DropdownMenuItem>
-                                <CreditCard />
-                                Billing
-                            </DropdownMenuItem>
-                            <DropdownMenuItem>
-                                <Bell />
-                                Notifications
-                            </DropdownMenuItem>
                         </DropdownMenuGroup>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem>
+                        <DropdownMenuItem onClick={handleLogout}>
                             <LogOut />
                             Log out
                         </DropdownMenuItem>
@@ -124,3 +125,5 @@ export function NavUser({
         </SidebarMenu>
     );
 }
+
+export { SidebarNavUser };
