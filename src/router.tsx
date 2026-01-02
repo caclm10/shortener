@@ -1,7 +1,7 @@
 import { BrowserRouter, Navigate, Route, Routes } from "react-router";
 
 import { AuthLayout, MainLayout } from "@/layouts";
-import { DashboardView, LoginView, RegisterView } from "@/views";
+import { DashboardView, LinkIndexView, LoginView, RegisterView } from "@/views";
 
 function Router() {
     return (
@@ -11,6 +11,10 @@ function Router() {
 
                 <Route element={<MainLayout />}>
                     <Route path="/dashboard" element={<DashboardView />} />
+
+                    <Route path="links">
+                        <Route index element={<LinkIndexView />} />
+                    </Route>
                 </Route>
 
                 <Route element={<AuthLayout />}>
