@@ -35,6 +35,16 @@ async function getLinkById(id: string): Promise<LinkTable | null> {
     return data;
 }
 
+// Custom error for duplicate alias
+class DuplicateAliasError extends Error {
+    constructor(alias: string) {
+        super(
+            `The alias "${alias}" is already taken. Please choose a different one.`,
+        );
+        this.name = "DuplicateAliasError";
+    }
+}
+
 // Create a new link
 interface CreateLinkData {
     original_url: string;
@@ -50,6 +60,12 @@ async function createLink(linkData: CreateLinkData): Promise<LinkTable> {
 
     const alias = linkData.alias || generateAlias();
 
+    // Check if alias is already taken
+    const aliasAvailable = await isAliasAvailable(alias);
+    if (!aliasAvailable) {
+        throw new DuplicateAliasError(alias);
+    }
+
     const { data, error } = await supabase
         .from(TABLE_NAME)
         .insert({
@@ -61,7 +77,13 @@ async function createLink(linkData: CreateLinkData): Promise<LinkTable> {
         .select()
         .single();
 
-    if (error) throw error;
+    if (error) {
+        // Handle race condition where alias was taken between check and insert
+        if (error.code === "23505" || error.message.includes("duplicate")) {
+            throw new DuplicateAliasError(alias);
+        }
+        throw error;
+    }
     return data;
 }
 
@@ -75,6 +97,14 @@ async function updateLink(
     id: string,
     linkData: UpdateLinkData,
 ): Promise<LinkTable> {
+    // Check if new alias is available (if alias is being changed)
+    if (linkData.alias) {
+        const aliasAvailable = await isAliasAvailable(linkData.alias, id);
+        if (!aliasAvailable) {
+            throw new DuplicateAliasError(linkData.alias);
+        }
+    }
+
     const { data, error } = await supabase
         .from(TABLE_NAME)
         .update({
@@ -85,7 +115,12 @@ async function updateLink(
         .select()
         .single();
 
-    if (error) throw error;
+    if (error) {
+        if (error.code === "23505" || error.message.includes("duplicate")) {
+            throw new DuplicateAliasError(linkData.alias || "");
+        }
+        throw error;
+    }
     return data;
 }
 

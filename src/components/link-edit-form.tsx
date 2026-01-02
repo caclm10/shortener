@@ -85,16 +85,7 @@ function LinkEditForm({
             onOpenChange(false);
         } catch (error) {
             if (error instanceof Error) {
-                if (
-                    error.message.includes("duplicate") ||
-                    error.message.includes("unique")
-                ) {
-                    toast.error(
-                        "This alias is already taken. Please choose another.",
-                    );
-                } else {
-                    toast.error(error.message);
-                }
+                toast.error(error.message);
             } else {
                 toast.error("Failed to update link. Please try again.");
             }
