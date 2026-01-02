@@ -1,0 +1,8 @@
+{
+    "rewrites": [
+        {
+            "source": "/:alias",
+            "destination": "https://ocyrkslssojrfumudngo.supabase.co/functions/v1/redirect-action?alias=:alias"
+        }
+    ]
+}
